@@ -6,6 +6,7 @@ use App\Models\Movie;
 use App\Models\Genre;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MovieController extends Controller
 {
@@ -16,35 +17,33 @@ class MovieController extends Controller
         'Erik Matti',
     ];
 
-    
-public function index(Request $request)
-{
-    DB::enableQueryLog();
+    public function index(Request $request)
+    {
+        DB::enableQueryLog();
 
-    $genre = $request->query('genre', 'all');
-    $director = $request->query('director', 'all');
+        $genre = $request->query('genre', 'all');
+        $director = $request->query('director', 'all');
 
-    $query = Movie::with('genre');
+        $query = Movie::with('genre');
 
-    if ($genre !== 'all') {
-        $query->where('genre_id', $genre);
+        if ($genre !== 'all') {
+            $query->where('genre_id', $genre);
+        }
+
+        if ($director !== 'all') {
+            $query->where('director', $director);
+        }
+
+        $movies = $query->get();
+        $genres = Genre::all();
+
+        return view('movies.index', compact(
+            'movies',
+            'genres',
+            'genre',
+            'director'
+        ));
     }
-
-    if ($director !== 'all') {
-        $query->where('director', $director);
-    }
-
-    $movies = $query->get();
-    $genres = Genre::all();
-
-    return view('movies.index', compact(
-        'movies',
-        'genres',
-        'genre',
-        'director'
-    ));
-}
-
 
     public function create()
     {
@@ -93,17 +92,23 @@ public function index(Request $request)
 
         $movie->update($validated);
 
+        Log::info('Movie updated', [
+            'id' => $movie->id,
+        ]);
+
         return redirect()->route('movies.index')
             ->with('success', 'Movie updated successfully.');
     }
 
     public function destroy(Movie $movie)
-    {
-        $movie->delete();
+{
+    abort_if($movie->genre->movies()->count() === 1, 403);
 
-        return redirect()->route('movies.index')
-            ->with('success', 'Movie deleted successfully.');
-    }
+    $movie->delete();
+
+    return redirect()->route('movies.index')
+        ->with('success', 'Movie deleted successfully.');
+}
 
     public function featured()
     {
